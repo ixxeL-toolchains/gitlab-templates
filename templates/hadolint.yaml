@@ -1,0 +1,37 @@
+.hadolint:
+  image: ixxel/unit-tests-alpine:latest
+  variables:
+    FORMAT: 'json'
+    THRESHOLD: 'error'
+    WORKINGDIR: '.'
+  script:
+    - |-
+      RED="\033[1;31m"
+      GREEN="\033[1;32m"
+      YELLOW="\033[1;33m"
+      BLUE="\033[1;34m"
+      PURPLE="\033[1;35m"
+      CYAN="\033[1;36m"
+      BLANK="\033[0m"
+      set +e
+
+      echo -e "${BLUE}[ STEP - LINTING DOCKERFILE ] > Linting Dockerfile with Hadolint.${BLANK}"
+      echo -e "${CYAN}[ INFO ] > Hadolint version.${BLANK}"
+      hadolint --version
+      echo -e "${YELLOW}[ EXECUTING ] > Executing Dockerfile linting.${BLANK}"
+      if [[ ${FORMAT} != "tty" || ${FORMAT} != "checkstyle" ]]
+      then
+        hadolint -V ${WORKINGDIR}/Dockerfile --format ${FORMAT} \
+                                             --failure-threshold ${THRESHOLD} | jq -C
+      else
+        hadolint -V ${WORKINGDIR}/Dockerfile --format ${FORMAT} \
+                                             --failure-threshold ${THRESHOLD}
+      fi
+      EXIT_CODE="${PIPESTATUS[0]}"
+      if [[ ${EXIT_CODE} -ne 0 ]]
+      then
+        echo -e "${RED}[ FAIL ] > Hadolint scan failed on threshold '${THRESHOLD}'${BLANK}"
+      else
+        echo -e "${GREEN}[ SUCCESS ] > Hadolint scan succeeded on threshold '${THRESHOLD}'${BLANK}"
+      fi
+      exit ${EXIT_CODE}

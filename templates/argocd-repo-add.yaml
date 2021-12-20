@@ -1,0 +1,83 @@
+.argocd-repo-add:
+  image: ixxel/multi-tools-alpine:latest
+  variables:
+      ARGOCD_SERVER: 'argocd-server.argocd.svc.cluster.local:443'
+      ARGOCD_USERNAME: 'admin'
+      ARGOCD_PASSWORD: ''
+      ARGOCD_API_TOKEN: ''
+      ARGOCD_APP_NAME: ''
+      ARGOCD_REPO_URL: ''
+      ARGOCD_REPO_NAME: ''
+      ARGOCD_REPO_TYPE: 'git'
+      ARGOCD_REPO_USER: ''
+      ARGOCD_REPO_PASSWORD: ''
+      PLAINTEXT: ''
+      WORKINGDIR: '.'
+  script:
+    - |-
+      RED="\033[1;31m"
+      GREEN="\033[1;32m"
+      YELLOW="\033[1;33m"
+      BLUE="\033[1;34m"
+      PURPLE="\033[1;35m"
+      CYAN="\033[1;36m"
+      BLANK="\033[0m"
+      set +e
+
+      echo -e "${BLUE}[ STEP - CREATIN NEW APP ] > Creating new app with ArgoCD.${BLANK}"
+      echo -e "${CYAN}[ INFO ] > ArgoCD client/server version for ${ARGOCD_SERVER}.${BLANK}"
+      argocd version --short \
+                     --auth-token=${ARGOCD_API_TOKEN} \
+                     --server=${ARGOCD_SERVER} \
+                     --plaintext
+      echo -e "${YELLOW}[ STEP ] > Listing repositories...${BLANK}"
+      argocd repo list --auth-token=${ARGOCD_API_TOKEN} \
+                       --server=${ARGOCD_SERVER} \
+                       --plaintext
+      echo -e "${YELLOW}[ STEP ] > Verifying repository ${ARGOCD_REPO_URL} is created...${BLANK}"
+      EXIST=$(argocd repo list --auth-token=${ARGOCD_API_TOKEN} \
+                               --server=${ARGOCD_SERVER} \
+                               --plaintext \
+                               --output=json \
+                              | jq ".[] | select(.repo==\"${ARGOCD_REPO_URL}\")")
+      if [[ -n ${EXIST} ]]
+      then
+        argocd repo get ${ARGOCD_REPO_URL} --auth-token=${ARGOCD_API_TOKEN} \
+                                           --server=${ARGOCD_SERVER} \
+                                           --plaintext
+        REPO_STATUS=$(argocd repo get ${ARGOCD_REPO_URL} --auth-token=${ARGOCD_API_TOKEN} \
+                                                         --server=${ARGOCD_SERVER} \
+                                                         --plaintext \
+                                                         --output=json \
+                                                         | jq -r '.connectionState.status')
+        if [[ ${REPO_STATUS} = "Successful" ]]
+        then
+          echo -e "${CYAN}[ INFO ] > Repository ${ARGOCD_REPO_URL} is already created and has ${REPO_STATUS} status.${BLANK}"
+          echo -e "${PURPLE}[ CANCEL ] > Cancelling repository creation.${BLANK}"
+          exit 0
+        else
+          echo -e "${CYAN}[ INFO ] > Repository ${ARGOCD_REPO_URL} is already created but has ${REPO_STATUS} status.${BLANK}"
+          echo -e "${RED}[ FAIL ] > Cancelling repository creation.${BLANK}"
+          exit 1
+        fi
+      else
+        echo -e "${CYAN}[ INFO ] > Repository ${ARGOCD_REPO_URL} is not yet created.${BLANK}"
+        echo -e "${YELLOW}[ STEP ] > Proceeding repository ${ARGOCD_REPO_URL} creation with name ${ARGOCD_REPO_NAME}${BLANK}"
+        argocd repo add ${ARGOCD_REPO_URL} --auth-token=${ARGOCD_API_TOKEN} \
+                                           --server=${ARGOCD_SERVER} \
+                                           --plaintext \
+                                           --insecure-skip-server-verification \
+                                           --type=${ARGOCD_REPO_TYPE} \
+                                           --name=${ARGOCD_REPO_NAME} \
+                                           --username=${ARGOCD_REPO_USER} \
+                                           --password=${ARGOCD_REPO_PASSWORD}
+        if [[ $? = 0 ]]
+        then
+          echo -e "${GREEN}[ SUCCESS ] > Repository ${ARGOCD_REPO_URL} created successfully.${BLANK}"
+        else
+          echo -e "${RED}[ FAIL ] > Repository ${ARGOCD_REPO_URL} creation failed.${BLANK}"
+          exit 1
+        fi
+      fi
+    
+
